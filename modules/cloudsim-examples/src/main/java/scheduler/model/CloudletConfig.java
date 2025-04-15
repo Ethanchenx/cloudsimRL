@@ -9,7 +9,7 @@ package scheduler.model;
 public class CloudletConfig {
 
     // 任务总数
-    public static final int NUM_CLOUDLETS = 100;
+    public static final int NUM_CLOUDLETS = 500;
 
     // 默认任务参数
     public static final long CLOUDLET_LENGTH = 50000;

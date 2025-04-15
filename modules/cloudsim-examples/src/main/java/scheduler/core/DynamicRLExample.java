@@ -17,10 +17,16 @@ import scheduler.env.DataCenterFactory;
 import scheduler.env.VmFactory;
 import scheduler.eval.EvaluationMetrics;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
 public class DynamicRLExample {
+    private static List<EvaluationMetrics.Result> resultList;
+
+    public DynamicRLExample() {
+        resultList = new ArrayList<>();
+    };
 
     public static void run() {
         try {
@@ -69,10 +75,17 @@ public class DynamicRLExample {
 
             EvaluationMetrics.Result result = EvaluationMetrics.evaluate(results);
             EvaluationMetrics.print(result, "DRL"); // 或 "RR"
+            resultList.add(result);
 
 
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    public void printResultList(){
+        for (EvaluationMetrics.Result result : resultList){
+            EvaluationMetrics.print(result, "DRL");
         }
     }
 }

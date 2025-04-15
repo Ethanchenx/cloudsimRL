@@ -11,6 +11,7 @@ import com.google.gson.*;
 
 import java.io.*;
 import java.net.Socket;
+import java.util.List;
 
 public class RLClient {
 
@@ -25,7 +26,8 @@ public class RLClient {
         out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
     }
 
-    public int getAction(double[] state, int cloudletId) throws IOException {
+    public int getAction(List<Double> state, int cloudletId) throws IOException, InterruptedException {
+        Thread.sleep(20);
         JsonObject obj = new JsonObject();
         JsonArray arr = new JsonArray();
         for (double v : state) arr.add(v);
@@ -45,7 +47,28 @@ public class RLClient {
         return result.get("action").getAsInt();
     }
 
+    public void sendReward(Double reward) throws IOException, InterruptedException {
+        Thread.sleep(20);
+        JsonObject obj = new JsonObject();
+        obj.addProperty("reward", reward);
+
+
+        // 发送 JSON 请求
+        out.write(obj.toString());
+        out.newLine();
+        out.flush();
+        System.out.println("🔼 Sending to Python: " + obj.toString());
+
+
+//        // 接收返回 JSON
+//        String response = in.readLine();
+//        JsonObject result = gson.fromJson(response, JsonObject.class);
+//        return result.get("action").getAsInt();
+    }
+
     public void close() throws IOException {
         socket.close();
+        in.close();
+        out.close();
     }
 }

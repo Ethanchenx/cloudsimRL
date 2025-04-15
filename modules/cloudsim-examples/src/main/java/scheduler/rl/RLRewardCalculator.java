@@ -1,12 +1,6 @@
 package scheduler.rl;
 
 
-/**
- * @Author: Chen
- * @File Name: RLStateEncoder.java
- */
-
-
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Vm;
 
@@ -15,28 +9,31 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-public class RLStateEncoder {
+/**
+ * @Author: Chen
+ * @File Name: RLRewardCalculator.java
+ */
 
-    public static List<Double> buildVmsState(List<Vm> vmList, Double[] vmCosts) {
+public class RLRewardCalculator {
+    public static Double calculateReward(List<Vm> vmList, Double[] vmCosts, Cloudlet cloudlet, double postImbalanceRate) {
         int n = vmList.size();
         double[] vmEstimateRemainingTimes = new double[n];
-        List<Double> vmStates = new ArrayList<>();
 
         for (int i = 0; i < n; i++){
             List<Cloudlet> execList = vmList.get(i).getCloudletScheduler().getCloudletExecList();
             List<Cloudlet> waitingList = vmList.get(i).getCloudletScheduler().getCloudletWaitingList();
 
             double estimateRemainingTime = (waitingList.stream()
-                            .mapToDouble(Cloudlet::getCloudletLength) // 获取每个 Cloudlet 的执行长度
-                            .sum() +
+                    .mapToDouble(Cloudlet::getCloudletLength) // 获取每个 Cloudlet 的执行长度
+                    .sum() +
                     execList.stream()
                             .mapToDouble(Cloudlet::getCloudletLength)
                             .sum()) / vmList.get(i).getMips();
 
             vmEstimateRemainingTimes[i] = estimateRemainingTime;
-            vmStates.add(estimateRemainingTime);
-
         }
+
+        vmEstimateRemainingTimes[cloudlet.getGuestId()] += cloudlet.getExecFinishTime() - cloudlet.getExecStartTime();
 
         double meanLoad = Arrays.stream(vmEstimateRemainingTimes).sum() / n;
         double imbalance = 0.0;
@@ -44,16 +41,10 @@ public class RLStateEncoder {
             imbalance += Math.abs(load - meanLoad);
         }
         double imbalanceRate = imbalance / (meanLoad * n);
-//        imbalanceRate = Math.max(0.0, imbalanceRate); // 保证非负
 
 
-        Collections.addAll(vmStates, vmCosts);
-        vmStates.add(imbalanceRate);
 
 
-        return vmStates;
+        return postImbalanceRate - imbalanceRate;
     }
-
-
 }
-
