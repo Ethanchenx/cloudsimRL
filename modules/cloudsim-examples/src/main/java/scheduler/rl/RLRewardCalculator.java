@@ -15,9 +15,10 @@ import java.util.List;
  */
 
 public class RLRewardCalculator {
-    public static Double calculateReward(List<Vm> vmList, Double[] vmCosts, Cloudlet cloudlet, double postImbalanceRate) {
+    public static List<Double> calculateReward(List<Vm> vmList, Double[] vmCosts, Cloudlet cloudlet, double postImbalanceRate) {
         int n = vmList.size();
         double[] vmEstimateRemainingTimes = new double[n];
+        List<Double> nextState = new ArrayList<>();
 
         for (int i = 0; i < n; i++){
             List<Cloudlet> execList = vmList.get(i).getCloudletScheduler().getCloudletExecList();
@@ -31,20 +32,27 @@ public class RLRewardCalculator {
                             .sum()) / vmList.get(i).getMips();
 
             vmEstimateRemainingTimes[i] = estimateRemainingTime;
+            nextState.add(estimateRemainingTime);
+
         }
 
         vmEstimateRemainingTimes[cloudlet.getGuestId()] += cloudlet.getExecFinishTime() - cloudlet.getExecStartTime();
+        nextState.set(cloudlet.getGuestId(), nextState.get(cloudlet.getGuestId()) + cloudlet.getExecFinishTime() - cloudlet.getExecStartTime());
 
         double meanLoad = Arrays.stream(vmEstimateRemainingTimes).sum() / n;
         double imbalance = 0.0;
         for (double load : vmEstimateRemainingTimes) {
-            imbalance += Math.abs(load - meanLoad);
+            imbalance += (load - meanLoad) * (load - meanLoad);
         }
-        double imbalanceRate = imbalance / (meanLoad * n);
+        double imbalanceRate = imbalance;
 
 
+        double reward = postImbalanceRate - imbalanceRate;
+//        if (reward <= 0) {
+//            reward = -1;
+//        }
 
-
-        return postImbalanceRate - imbalanceRate;
+        nextState.add(reward);
+        return nextState;
     }
 }

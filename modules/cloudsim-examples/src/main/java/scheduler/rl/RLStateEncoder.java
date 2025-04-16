@@ -17,7 +17,7 @@ import java.util.List;
 
 public class RLStateEncoder {
 
-    public static List<Double> buildVmsState(List<Vm> vmList, Double[] vmCosts) {
+    public static List<Double> buildVmsState(List<Vm> vmList, Double[] vmCosts, Cloudlet cloudlet) {
         int n = vmList.size();
         double[] vmEstimateRemainingTimes = new double[n];
         List<Double> vmStates = new ArrayList<>();
@@ -41,13 +41,16 @@ public class RLStateEncoder {
         double meanLoad = Arrays.stream(vmEstimateRemainingTimes).sum() / n;
         double imbalance = 0.0;
         for (double load : vmEstimateRemainingTimes) {
-            imbalance += Math.abs(load - meanLoad);
+            imbalance += (load - meanLoad) * (load - meanLoad);
         }
-        double imbalanceRate = imbalance / (meanLoad * n);
+        double imbalanceRate = imbalance;
+//        double imbalanceRate = imbalance / (meanLoad * n);
 //        imbalanceRate = Math.max(0.0, imbalanceRate); // 保证非负
 
 
-        Collections.addAll(vmStates, vmCosts);
+//        Collections.addAll(vmStates, vmCosts);
+//        vmStates.add(imbalanceRate);
+//        vmStates.add((double)cloudlet.getCloudletLength());
         vmStates.add(imbalanceRate);
 
 

@@ -38,7 +38,7 @@ class ReplayBuffer:
 def select_action(state, model, epsilon):
     """选择动作：epsilon-greedy策略"""
     if random.random() < epsilon:
-        return random.randint(0, (int)(len(state)/2) - 1)  # 随机选择一个虚拟机
+        return random.randint(0, (int)(len(state)) - 2)  # 随机选择一个虚拟机
     else:
         state_tensor = torch.tensor(state, dtype=torch.float32)
         q_values = model(state_tensor)
@@ -76,8 +76,16 @@ def train_dqn(model, target_model, replay_buffer, optimizer, batch_size, gamma):
 # 服务器代码
 def run_server():
     # DQN和优化器初始化
-    input_dim = 7  # 假设state有7个维度（虚拟机负载等信息）
-    output_dim = 3  # 假设有3台虚拟机
+    input_dim = 3  # 假设state有7个维度（虚拟机负载等信息）
+    output_dim = 3  # align with parameter in java (vm nums)
+    task_nums = 200  # align with parameter in java
+    
+    iteration_count = 0
+    iteration_nums = 10  # align with parameter in java 
+    train_count = 0
+    load_state_dict_nums = 200
+
+
     model = DQN(input_dim, output_dim)
     target_model = DQN(input_dim, output_dim)
     optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -86,7 +94,7 @@ def run_server():
     epsilon = 0.1  # epsilon-greedy策略中的探索率
     gamma = 0.99   # 奖励折扣因子
     batch_size = 32
-    counts = 0
+
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.bind(('localhost', 5678))
@@ -122,21 +130,24 @@ def run_server():
                 reward_data = conn.recv(4096).decode().strip()
                 if not reward_data:
                     print("Error: No reward data received!")
+                    iteration_count += 1
+                    save_model(target_model, f"target_model_{iteration_count * task_nums}.pth")
                     break
                 print(f"Received reward data: {reward_data}")
 
                 # 假设reward数据以json格式发送
                 reward_data = json.loads(reward_data)
                 reward = reward_data.get('reward', 0)  # 从reward数据中获取奖励
+                next_state = np.array(reward_data['next_state'])
+                # next_state = np.append(next_state, state[-1], axis=None)
+
 
                 # 将经验存入回放池
-                replay_buffer.add((state, action, reward, state, False))  # 这里假设没有终止条件
+                replay_buffer.add((state, action, reward, next_state, False))  # 这里假设没有终止条件
 
                 # 训练DQN模型
                 train_dqn(model, target_model, replay_buffer, optimizer, batch_size, gamma)
-                counts += 1
-                if counts >= 1000:
-                    break
+                train_count += 1
 
         except Exception as e:
             print(f"Error: {e}")
@@ -144,8 +155,18 @@ def run_server():
             conn.close()
 
         # 每隔一定步骤更新目标网络
-        target_model.load_state_dict(model.state_dict())
-        counts = 0
+        if train_count >= load_state_dict_nums:
+            target_model.load_state_dict(model.state_dict())
+
+        if iteration_count == iteration_nums:
+            conn.close()
+            break
+
+# 保存模型的权重（state_dict）
+def save_model(model, path):
+    torch.save(model.state_dict(), "modules\\cloudsim-examples\\src\\main\\python\\" + path)
+    print(f"Model saved to {path}")
+
 
 if __name__ == '__main__':
     run_server()

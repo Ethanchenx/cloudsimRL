@@ -7,6 +7,7 @@ package scheduler.core;
  */
 
 
+import com.opencsv.CSVWriter;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Datacenter;
 import org.cloudbus.cloudsim.Vm;
@@ -16,13 +17,17 @@ import scheduler.env.CloudletFactory;
 import scheduler.env.DataCenterFactory;
 import scheduler.env.VmFactory;
 import scheduler.eval.EvaluationMetrics;
+import scheduler.model.CloudletConfig;
 
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
 public class DynamicRLExample {
     private static List<EvaluationMetrics.Result> resultList;
+    private static String resultOutputFileName = "modules/cloudsim-examples/src/main/java/scheduler/results/output.csv";
 
     public DynamicRLExample() {
         resultList = new ArrayList<>();
@@ -71,10 +76,9 @@ public class DynamicRLExample {
                     .mapToDouble(Cloudlet::getFinishTime)
                     .max().orElse(0.0);
 
-            System.out.println("🧪 实际模拟 Makespan = " + actualMakespan);
 
             EvaluationMetrics.Result result = EvaluationMetrics.evaluate(results);
-            EvaluationMetrics.print(result, "DRL"); // 或 "RR"
+            EvaluationMetrics.print(result, "DRL");
             resultList.add(result);
 
 
@@ -83,9 +87,34 @@ public class DynamicRLExample {
         }
     }
 
-    public void printResultList(){
-        for (EvaluationMetrics.Result result : resultList){
-            EvaluationMetrics.print(result, "DRL");
+    public void printResultList() throws IOException {
+        // 打开 CSV 文件进行写入
+        CSVWriter writer = new CSVWriter(new FileWriter(resultOutputFileName));
+
+        // 写入表头
+        String[] header = {"Iteration", "Makespan", "TotalCost", "Utilization", "Imbalance"};
+        writer.writeNext(header);
+
+        // 遍历 resultList 并写入每个结果
+        for (int i = 0; i < resultList.size(); i++) {
+            List<String> data = new ArrayList<>();
+            EvaluationMetrics.Result result = resultList.get(i);
+
+            // 将每个 result 的字段添加到数据列表
+            data.add(String.valueOf((i+1) * CloudletConfig.NUM_CLOUDLETS));
+            data.add(String.valueOf(result.makespan));
+            data.add(String.valueOf(result.totalCost));
+            data.add(String.valueOf(result.utilization));
+            data.add(String.valueOf(result.imbalance));
+
+            // 写入数据行
+            writer.writeNext(data.toArray(new String[0]));
+
+            // 你还可以根据需要输出 EvaluationMetrics 的其他信息
+            EvaluationMetrics.print(result, String.format("Iteration %d", (i+1) * CloudletConfig.NUM_CLOUDLETS));
         }
+
+        // 关闭 CSVWriter
+        writer.close();
     }
 }

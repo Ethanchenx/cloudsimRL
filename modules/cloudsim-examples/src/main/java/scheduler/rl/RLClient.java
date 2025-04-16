@@ -27,7 +27,7 @@ public class RLClient {
     }
 
     public int getAction(List<Double> state, int cloudletId) throws IOException, InterruptedException {
-        Thread.sleep(20);
+        Thread.sleep(50);
         JsonObject obj = new JsonObject();
         JsonArray arr = new JsonArray();
         for (double v : state) arr.add(v);
@@ -38,7 +38,7 @@ public class RLClient {
         out.write(obj.toString());
         out.newLine();
         out.flush();
-        System.out.println("🔼 Sending to Python: " + obj.toString());
+        System.out.println("Sending State: " + obj.toString());
 
 
         // 接收返回 JSON
@@ -47,23 +47,21 @@ public class RLClient {
         return result.get("action").getAsInt();
     }
 
-    public void sendReward(Double reward) throws IOException, InterruptedException {
-        Thread.sleep(20);
+    public void sendReward(List<Double> nextState, Double reward) throws IOException, InterruptedException {
+        Thread.sleep(50);
         JsonObject obj = new JsonObject();
+        JsonArray arr = new JsonArray();
         obj.addProperty("reward", reward);
+        for (double v : nextState) arr.add(v);
+        obj.add("next_state", arr);
 
 
         // 发送 JSON 请求
         out.write(obj.toString());
         out.newLine();
         out.flush();
-        System.out.println("🔼 Sending to Python: " + obj.toString());
+        System.out.println("Sending Reward: " + obj.toString());
 
-
-//        // 接收返回 JSON
-//        String response = in.readLine();
-//        JsonObject result = gson.fromJson(response, JsonObject.class);
-//        return result.get("action").getAsInt();
     }
 
     public void close() throws IOException {
