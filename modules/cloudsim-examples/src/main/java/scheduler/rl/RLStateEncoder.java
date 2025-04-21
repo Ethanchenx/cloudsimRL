@@ -9,11 +9,8 @@ package scheduler.rl;
 
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.Vm;
-import org.cloudbus.cloudsim.core.CloudSim;
-
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 public class RLStateEncoder {
@@ -36,24 +33,7 @@ public class RLStateEncoder {
 
             vmEstimateRemainingTimes[i] = estimateRemainingTime;
             vmStates.add(estimateRemainingTime);
-
         }
-
-        double meanLoad = Arrays.stream(vmEstimateRemainingTimes).sum() / n;
-        double imbalance = 0.0;
-        for (double load : vmEstimateRemainingTimes) {
-            imbalance += Math.abs(load - meanLoad);
-        }
-//        double imbalanceRate = imbalance;
-        double imbalanceRate = imbalance / (meanLoad * n);
-//        imbalanceRate = Math.max(0.0, imbalanceRate); // 保证非负
-
-
-//        Collections.addAll(vmStates, vmCosts);
-//        vmStates.add(imbalanceRate);
-//        vmStates.add((double)cloudlet.getCloudletLength());
-        vmStates.add(imbalanceRate);
-
 
         return vmStates;
     }

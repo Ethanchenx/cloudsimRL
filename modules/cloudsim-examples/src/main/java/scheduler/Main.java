@@ -11,18 +11,18 @@ import java.io.IOException;
 
 public class Main {
     public static void main(String[] args) throws IOException {
-        PSOExample.run();
+//        PSOExample.run();
 
 //        RRExample.run();
 
 
-//        DynamicRLExample dynamicRLExample = new DynamicRLExample();
-//        DynamicRLBroker.connectClient();
-//        for (int i = 0; i< CloudletConfig.ITERATION_NUMS; i++){
-//            DynamicRLExample.run();
-//        }
-//        dynamicRLExample.printResultList();
-//        DynamicRLBroker.closeClient();
+        DynamicRLExample dynamicRLExample = new DynamicRLExample();
+        DynamicRLBroker.connectClient();
+        for (int i = 0; i< CloudletConfig.ITERATION_NUMS; i++){
+            DynamicRLExample.run();
+        }
+        dynamicRLExample.printResultList();
+        DynamicRLBroker.closeClient();
 
     }
 

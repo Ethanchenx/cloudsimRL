@@ -31,12 +31,10 @@ public class DynamicRLBroker extends DatacenterBroker {
     private Queue<Cloudlet> taskQueue = new LinkedList<>();
 
     private Double[] vmCosts = new Double[VmConfig.VM_NUMS] ;
-    private Double postImbalanceRate;
 
     public DynamicRLBroker(String name) throws Exception {
         super(name);
         Arrays.fill(vmCosts, 0.0);
-        postImbalanceRate = -1.0;
     }
 
     public static void connectClient(){
@@ -66,15 +64,11 @@ public class DynamicRLBroker extends DatacenterBroker {
 
     @Override
     protected void submitCloudlets() {
-
         // 将 Cloudlet 缓存并清空 CloudletList
         taskQueue.addAll(getCloudletList());
         getCloudletList().clear();
 
-
-
         // 启动首次调度
-//        scheduleNext();
         for (int i=0; i< VmConfig.VM_NUMS; i++){
             Cloudlet c = taskQueue.poll();
             int selectedVm = i;
@@ -102,30 +96,13 @@ public class DynamicRLBroker extends DatacenterBroker {
         double cloudletExecTime = cloudlet.getExecFinishTime() - cloudlet.getExecStartTime();
         vmCosts[guestId] += cloudletExecTime * (VmConfig.COST_C1[guestId] + VmConfig.COST_C2[guestId] + VmConfig.COST_C3[guestId]);
 
-
         if (taskQueue.isEmpty()) {
             Log.printLine(CloudSim.clock() + ": " + this.getName() + ": All Cloudlets executed. Finishing...");
             this.clearDatacenters();
             this.finishExecution();
-
         }
-
-
-        if (!taskQueue.isEmpty()) {
-            List<Double> nextState = new ArrayList<>();
-            Double reward;
-//            if (postImbalanceRate != -1){
-//                nextState = RLRewardCalculator.calculateReward(getGuestsCreatedList(), vmCosts, cloudlet, postImbalanceRate, previousState, previousCloudlet);
-//                reward = nextState.getLast();
-//                nextState.removeLast();
-//                try {
-//                    rlClient.sendReward(nextState, reward);
-//                } catch (Exception e) {
-//                    System.err.println("⚠️ reward err");
-//                }
-//            }
+        else {
             scheduleNext();
-
         }
     }
 
@@ -137,18 +114,12 @@ public class DynamicRLBroker extends DatacenterBroker {
 
         // 获取当前 VM 状态（负载）
         List<Double> state = RLStateEncoder.buildVmsState(getGuestsCreatedList(), vmCosts, c);
-        postImbalanceRate = state.getLast();
-        state.removeLast();
         List<Double> estimateRuntime = new ArrayList<>();
         for (int i = 0; i < vmList.size(); i++){
             estimateRuntime.add(i, c.getCloudletLength()/vmList.get(i).getMips());
         }
 
         int selectedVm = 0;
-
-//        this.previousState = state;
-//        this.previousCloudlet = c;
-
         // 使用 RL 服务返回的动作来选择 VM
         try {
             selectedVm = rlClient.getAction(state, c.getCloudletLength(), c.getCloudletId(), estimateRuntime);

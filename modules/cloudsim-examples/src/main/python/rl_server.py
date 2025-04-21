@@ -8,6 +8,8 @@ import torch.optim as optim
 from collections import deque
 import math
 from pathlib import Path
+import draw_metrics
+import draw_compare
 
 # DQN模型
 class DQN(nn.Module):
@@ -108,6 +110,7 @@ def run_server():
     print(config_data)
 
     max_iterations = task_nums * iteration_nums
+    saving_path = f"modules/cloudsim-examples/src/main/python/{dataset_name}_{task_nums}_{vm_nums}_{iteration_nums}"
 
     # DQN和优化器初始化
     input_dim = 6  # 假设state有7个维度（虚拟机负载等信息）
@@ -180,7 +183,7 @@ def run_server():
             print(train_count)
 
             if (train_count) % 100 == 0:
-                save_model(target_model, f"modules\cloudsim-examples\src\main\python\{dataset_name}_{task_nums}_{vm_nums}_{iteration_nums}\models", f"\\target_model_{train_count}.pth")
+                save_model(target_model, saving_path + "/models", f"target_model_{train_count}.pth")
 
     # except Exception as e:
     #     print(f"Error: {e}")
@@ -189,13 +192,15 @@ def run_server():
         conn.close()  # Ensure the connection is closed properly when done
         print("Connection closed.")
 
+    draw_plot(saving_path)
+
 
 # 保存模型的权重（state_dict）
 def save_model(model, path, file_name):
     folder_path = Path(path)
     folder_path.mkdir(parents=True, exist_ok=True)
 
-    torch.save(model.state_dict(), path + file_name)
+    torch.save(model.state_dict(), f"{path}/{file_name}")
     print(f"Model saved to {path + file_name}")
 
 def calculate_reward(state, action, vm_nums):
@@ -233,6 +238,10 @@ def normalize_to_minus_one_one(arr):
     # Apply the normalization formula
     normalized_arr = 2 * (arr - arr_min) / (arr_max - arr_min) - 1
     return normalized_arr
+
+def draw_plot(path):
+    draw_metrics.draw_training_process_metrics(path, "result.csv")
+    # draw_compare.draw_compare(path, "compare.csv")
 
 if __name__ == '__main__':
     run_server()
