@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.optim as optim
 from collections import deque
 import math
+from pathlib import Path
 
 # DQN模型
 class DQN(nn.Module):
@@ -35,12 +36,12 @@ class ReplayBuffer:
     def size(self):
         return len(self.buffer)
 
-def select_action(state, model, epsilon, use_softmax=False, temperature=1.0):
+def select_action(state, model, epsilon, vm_nums, use_softmax=False, temperature=1.0):
     """
     Epsilon-greedy or softmax-based action selection
     """
     if random.random() < epsilon:
-        return random.randint(0, 2)     #
+        return random.randint(0, vm_nums-1)     #
 
     state_tensor = torch.tensor(state, dtype=torch.float32)
     q_values = model(state_tensor)
@@ -75,9 +76,13 @@ def train_dqn(model, target_model, replay_buffer, optimizer, batch_size, gamma):
     q_values = model(states).gather(1, actions.unsqueeze(1)).squeeze(1)
     next_q_values = target_model(next_states).max(1)[0]
     target_q_values = rewards + gamma * next_q_values * (~dones)
+
+    print(f'Predicted Q-values: {q_values}')
+    print(f'Target Q-values: {target_q_values}')
     
     # 计算损失
     loss = nn.MSELoss()(q_values, target_q_values)
+    print(f'loss: {loss.item()}')
     
     # 反向传播更新模型
     optimizer.zero_grad()
@@ -86,9 +91,27 @@ def train_dqn(model, target_model, replay_buffer, optimizer, batch_size, gamma):
 
 # 服务器代码
 def run_server():
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(('localhost', 5678))
+    server.listen(1)
+    print("Server listening on port 5678")
+
+    conn, addr = server.accept()
+    print(f"Connection from {addr}")
+
+    config_data = conn.recv(4096).decode().strip()
+    config_data = json.loads(config_data)
+    vm_nums = config_data['vm_nums']
+    task_nums = config_data['task_nums']
+    iteration_nums = config_data['iteration_nums']
+    dataset_name = config_data['dataset_name']
+    print(config_data)
+
+    max_iterations = task_nums * iteration_nums
+
     # DQN和优化器初始化
     input_dim = 6  # 假设state有7个维度（虚拟机负载等信息）
-    output_dim = 3  # align with parameter in java (vm nums) 
+    output_dim = vm_nums  # align with parameter in java (vm nums) 
     train_count = 0
 
     model = DQN(input_dim, output_dim)
@@ -100,76 +123,84 @@ def run_server():
     gamma = 0.99   # 奖励折扣因子
     batch_size = 32
 
-
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.bind(('localhost', 5678))
-    server.listen(1)
-    print("Server listening on port 5678")
-
-    while True:
-        conn, addr = server.accept()
-        print(f"Connection from {addr}")
-
-        try:
-            while True:
-                # 1. 接收state数据
-                data = conn.recv(4096).decode().strip()
-                if not data:
-                    break
-                print()
-                print(f"\nReceived state data: {data}")
-
-                # 解析状态和cloudletId
-                data = json.loads(data)
-                state = np.array(data['state'])
-                cloudlet_length = data['cloudletLength']
-                estimate_runtime = data['estimateRuntime']
-                state = np.append(state, estimate_runtime)   #
-
-                # 选择动作
-                if train_count < 200:
-                    action = random.randint(0, 2)
-                else:
-                    action = select_action(state, model, epsilon)
-
-                # 返回选定的动作（虚拟机ID）
-                print(f"[State] {state} → [Action] {action}")
-                conn.sendall((json.dumps({"action": action}) + "\n").encode())
-                print('Action sent successfully')
+    epsilon_start = 0.9
+    epsilon_end = 0
 
 
-                  
-                reward, next_state = calculate_reward(state, action)
-                print(reward)
-                print(next_state)
-
-                
 
 
-                # 将经验存入回放池
-                replay_buffer.add((state, action, reward, next_state, False))  # 这里假设没有终止条件
 
-                # 训练DQN模型
-                train_dqn(model, target_model, replay_buffer, optimizer, batch_size, gamma)
-                train_count += 1
+    try:
+        while True:
+            # 1. Receive state data
+            data = conn.recv(4096).decode().strip()
 
-                if train_count % 100 == 0 and epsilon > 0.1:
-                    epsilon -= 0.1
+            # Check if the client has disconnected (empty data)
+            if not data:
+                print("Client disconnected.")
+                break  # Exit the while loop if client disconnects
 
-                if train_count % 100 == 0:
-                    save_model(target_model, f"target_model_{train_count}.pth")
+            print(f"\nReceived state data: {data}")
 
+            # Parse state and cloudletId
+            data = json.loads(data)
+            state = np.array(data['state'])
+            cloudlet_length = data['cloudletLength']
+            cloudlet_id = data['cloudletId']
+            estimate_runtime = data['estimateRuntime']
+            state = np.append(state, estimate_runtime)
 
-        # except Exception as e:
-        #     print(f"Error: {e}")
-        finally:
-            conn.close()
+            if cloudlet_id == vm_nums:
+                train_count += vm_nums
+
+            # Adjust epsilon dynamically
+            epsilon = adjust_epsilon_linear(train_count, max_iterations, epsilon_start, epsilon_end)
+            print(epsilon)
+
+            # Select action
+            if train_count < 200:
+                action = random.randint(0, vm_nums-1)
+            else:
+                action = select_action(state, model, epsilon, vm_nums)
+
+            # Return selected action (VM ID)
+            print(f"[State] {state} → [Action] {action}")
+            conn.sendall((json.dumps({"action": action}) + "\n").encode())
+            print('Action sent successfully')
+
+            reward, next_state = calculate_reward(state, action)
+            print(reward)
+            print(next_state)
+
+            # Store experience in replay buffer
+            replay_buffer.add((state, action, reward, next_state, False))  # No termination condition assumed
+
+            # Train DQN model
+            train_dqn(model, target_model, replay_buffer, optimizer, batch_size, gamma)
+            train_count += 1
+
+            # if train_count % 100 == 0 and epsilon > 0.1:
+            #     epsilon -= 0.1
+            print(train_count)
+
+            if (train_count) % 100 == 0:
+                save_model(target_model, f"modules\cloudsim-examples\src\main\python\{dataset_name}_{task_nums}_{vm_nums}_{iteration_nums}\models", f"\\target_model_{train_count}.pth")
+
+    # except Exception as e:
+    #     print(f"Error: {e}")
+
+    finally:
+        conn.close()  # Ensure the connection is closed properly when done
+        print("Connection closed.")
 
 
 # 保存模型的权重（state_dict）
-def save_model(model, path):
-    torch.save(model.state_dict(), "modules\\cloudsim-examples\\src\\main\\python\\" + path)
-    print(f"Model saved to {path}")
+def save_model(model, path, file_name):
+    folder_path = Path(path)
+    folder_path.mkdir(parents=True, exist_ok=True)
+
+    torch.save(model.state_dict(), path + file_name)
+    print(f"Model saved to {path + file_name}")
 
 def calculate_reward(state, action):
     vm_loads = state[:3]              # current remaining exec times
@@ -180,12 +211,32 @@ def calculate_reward(state, action):
 
     predicted_makespan = max(updated_loads)
 
-    # Use negative makespan as reward to encourage minimization
-    reward = -predicted_makespan
-
     next_state = np.append(updated_loads, est_runtimes)
+
+    all_makespan = []
+    for i in range(3):
+        loads = vm_loads.copy()
+        loads[i] += est_runtimes[i]
+        all_makespan.append(max(loads)-predicted_makespan)
+    normalized = normalize_to_minus_one_one(all_makespan)
+    print(normalized)
+
+    reward = -normalized[action] * 1000
     return reward, next_state
 
+def adjust_epsilon_linear(train_count, max_iterations, epsilon_start=1.0, epsilon_end=0.1):
+    epsilon = epsilon_start - (epsilon_start - epsilon_end) * (train_count / max_iterations)
+    return max(epsilon, epsilon_end)  # Ensure epsilon doesn't go below epsilon_end
+
+
+def normalize_to_minus_one_one(arr):
+    # Find the minimum and maximum values of the array
+    arr_min = np.min(arr)
+    arr_max = np.max(arr)
+    
+    # Apply the normalization formula
+    normalized_arr = 2 * (arr - arr_min) / (arr_max - arr_min) - 1
+    return normalized_arr
 
 if __name__ == '__main__':
     run_server()

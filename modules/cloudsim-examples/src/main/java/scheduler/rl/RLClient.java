@@ -26,13 +26,14 @@ public class RLClient {
         out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
     }
 
-    public int getAction(List<Double> state, Long cloudletLength, List<Double> estimateRuntime) throws IOException, InterruptedException {
-        Thread.sleep(20);
+    public int getAction(List<Double> state, Long cloudletLength, int cloudletId, List<Double> estimateRuntime) throws IOException, InterruptedException {
+//        Thread.sleep(20);
         JsonObject obj = new JsonObject();
         JsonArray arr = new JsonArray();
         for (double v : state) arr.add(v);
         obj.add("state", arr);
         obj.addProperty("cloudletLength", cloudletLength);
+        obj.addProperty("cloudletId", cloudletId);
         JsonArray arr1 = new JsonArray();
         for (double v : estimateRuntime) arr1.add(v);
         obj.add("estimateRuntime", arr1);
@@ -50,20 +51,21 @@ public class RLClient {
         return result.get("action").getAsInt();
     }
 
-    public void sendReward(List<Double> nextState, Double reward) throws IOException, InterruptedException {
+    public void sendConfig(int vm_nums, int task_nums, int iteration_nums, String dataset_name) throws IOException, InterruptedException {
         Thread.sleep(50);
         JsonObject obj = new JsonObject();
-        JsonArray arr = new JsonArray();
-        obj.addProperty("reward", reward);
-        for (double v : nextState) arr.add(v);
-        obj.add("next_state", arr);
+        obj.addProperty("vm_nums", vm_nums);
+        obj.addProperty("task_nums", task_nums);
+        obj.addProperty("iteration_nums", iteration_nums);
+        obj.addProperty("dataset_name", dataset_name);
+
 
 
         // 发送 JSON 请求
         out.write(obj.toString());
         out.newLine();
         out.flush();
-        System.out.println("Sending Reward: " + obj.toString());
+        System.out.println("Sending Configs: " + obj.toString());
 
     }
 

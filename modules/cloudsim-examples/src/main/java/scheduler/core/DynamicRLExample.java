@@ -18,16 +18,24 @@ import scheduler.env.DataCenterFactory;
 import scheduler.env.VmFactory;
 import scheduler.eval.EvaluationMetrics;
 import scheduler.model.CloudletConfig;
+import scheduler.model.VmConfig;
 
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 
 public class DynamicRLExample {
     private static List<EvaluationMetrics.Result> resultList;
-    private static String resultOutputFileName = "modules/cloudsim-examples/src/main/java/scheduler/results/output.csv";
+    private static String resultOutputFileName = String.format("modules/cloudsim-examples/src/main/python/%s_%d_%d_%d",
+            CloudletConfig.DATASET_NAME,
+            CloudletConfig.NUM_CLOUDLETS,
+            VmConfig.VM_NUMS,
+            CloudletConfig.ITERATION_NUMS);
 
     public DynamicRLExample() {
         resultList = new ArrayList<>();
@@ -90,8 +98,18 @@ public class DynamicRLExample {
     }
 
     public void printResultList() throws IOException {
+        Path path = Paths.get(resultOutputFileName);
+
+        // Create the directory if it doesn't exist
+        try {
+            Files.createDirectories(path);
+            System.out.println("Directory created or already exists: " + path);
+        } catch (IOException e) {
+            System.err.println("An error occurred while creating the directory: " + e.getMessage());
+        }
+
         // 打开 CSV 文件进行写入
-        CSVWriter writer = new CSVWriter(new FileWriter(resultOutputFileName));
+        CSVWriter writer = new CSVWriter(new FileWriter(resultOutputFileName+"/result.csv"));
 
         // 写入表头
         String[] header = {"Iteration", "Makespan", "TotalCost", "Utilization", "Imbalance"};

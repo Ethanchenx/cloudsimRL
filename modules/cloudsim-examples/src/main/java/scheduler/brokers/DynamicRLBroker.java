@@ -10,10 +10,12 @@ package scheduler.brokers;
 import org.cloudbus.cloudsim.Cloudlet;
 import org.cloudbus.cloudsim.DatacenterBroker;
 import org.cloudbus.cloudsim.Log;
+import org.cloudbus.cloudsim.Vm;
 import org.cloudbus.cloudsim.core.CloudActionTags;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.SimEvent;
 import scheduler.eval.EvaluationMetrics;
+import scheduler.model.CloudletConfig;
 import scheduler.model.VmConfig;
 import scheduler.rl.RLClient;
 import scheduler.rl.RLRewardCalculator;
@@ -25,7 +27,7 @@ import java.util.*;
 
 public class DynamicRLBroker extends DatacenterBroker {
 
-    private RLClient rlClient;
+    private static RLClient rlClient;
     private Queue<Cloudlet> taskQueue = new LinkedList<>();
 
     private Double[] vmCosts = new Double[VmConfig.VM_NUMS] ;
@@ -37,6 +39,31 @@ public class DynamicRLBroker extends DatacenterBroker {
         postImbalanceRate = -1.0;
     }
 
+    public static void connectClient(){
+        try {
+            rlClient = new RLClient("localhost", 5678);
+        } catch (Exception e) {
+            System.err.println("⚠️ 无法连接 RL 服务: " + e.getMessage());
+        }
+
+        try {
+            rlClient.sendConfig(VmConfig.VM_NUMS, CloudletConfig.NUM_CLOUDLETS, CloudletConfig.ITERATION_NUMS, CloudletConfig.DATASET_NAME);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public static void closeClient(){
+        try {
+            rlClient.close(); // 关闭连接
+            System.out.println("✅ RL Client connection closed.");
+        } catch (IOException e) {
+            System.err.println("⚠️ RL Client connection failed to close.");
+        }
+    }
+
     @Override
     protected void submitCloudlets() {
 
@@ -44,11 +71,7 @@ public class DynamicRLBroker extends DatacenterBroker {
         taskQueue.addAll(getCloudletList());
         getCloudletList().clear();
 
-        try {
-            rlClient = new RLClient("localhost", 5678);
-        } catch (Exception e) {
-            System.err.println("⚠️ 无法连接 RL 服务: " + e.getMessage());
-        }
+
 
         // 启动首次调度
 //        scheduleNext();
@@ -80,16 +103,11 @@ public class DynamicRLBroker extends DatacenterBroker {
         vmCosts[guestId] += cloudletExecTime * (VmConfig.COST_C1[guestId] + VmConfig.COST_C2[guestId] + VmConfig.COST_C3[guestId]);
 
 
-        if (this.cloudletsSubmitted == 0) {
+        if (taskQueue.isEmpty()) {
             Log.printLine(CloudSim.clock() + ": " + this.getName() + ": All Cloudlets executed. Finishing...");
             this.clearDatacenters();
             this.finishExecution();
-            try {
-                rlClient.close(); // 关闭连接
-                System.out.println("✅ RL Client connection closed.");
-            } catch (IOException e) {
-                System.err.println("⚠️ RL Client connection failed to close.");
-            }
+
         }
 
 
@@ -133,7 +151,7 @@ public class DynamicRLBroker extends DatacenterBroker {
 
         // 使用 RL 服务返回的动作来选择 VM
         try {
-            selectedVm = rlClient.getAction(state, c.getCloudletLength(), estimateRuntime);
+            selectedVm = rlClient.getAction(state, c.getCloudletLength(), c.getCloudletId(), estimateRuntime);
             System.out.printf("Cloudlet %d → VM %d\n", c.getCloudletId(), selectedVm);
         } catch (Exception e) {
             System.err.println("使用默认策略 (VM 0)");

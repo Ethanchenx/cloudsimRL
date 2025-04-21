@@ -7,11 +7,11 @@ package scheduler.model;
  */
 
 public class CloudletConfig {
-    public static final boolean RAMDOM = false;
-
     // 任务总数
-    public static final int NUM_CLOUDLETS = 100;
-    public static String DATASET_PATH = String.format("modules/cloudsim-examples/src/main/java/scheduler/dataset/GoCJ/GoCJ_Dataset_%d.txt", NUM_CLOUDLETS);
+    public static final int ITERATION_NUMS = 10;
+    public static final int NUM_CLOUDLETS = 250;
+    public static String DATASET_NAME = "GoCJ";
+    public static String DATASET_PATH = String.format("modules/cloudsim-examples/src/main/java/scheduler/dataset/%s/%s_Dataset_%d.txt", DATASET_NAME, DATASET_NAME, NUM_CLOUDLETS);
 
     // 默认任务参数
     public static final long CLOUDLET_LENGTH = 50000;
