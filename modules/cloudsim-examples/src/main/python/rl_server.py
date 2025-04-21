@@ -126,10 +126,6 @@ def run_server():
     epsilon_start = 0.9
     epsilon_end = 0
 
-
-
-
-
     try:
         while True:
             # 1. Receive state data
@@ -168,7 +164,7 @@ def run_server():
             conn.sendall((json.dumps({"action": action}) + "\n").encode())
             print('Action sent successfully')
 
-            reward, next_state = calculate_reward(state, action)
+            reward, next_state = calculate_reward(state, action, vm_nums)
             print(reward)
             print(next_state)
 
@@ -202,9 +198,9 @@ def save_model(model, path, file_name):
     torch.save(model.state_dict(), path + file_name)
     print(f"Model saved to {path + file_name}")
 
-def calculate_reward(state, action):
-    vm_loads = state[:3]              # current remaining exec times
-    est_runtimes = state[3:]          # estimate runtime for this task on each VM
+def calculate_reward(state, action, vm_nums):
+    vm_loads = state[:vm_nums]              # current remaining exec times
+    est_runtimes = state[vm_nums:]          # estimate runtime for this task on each VM
 
     updated_loads = vm_loads.copy()
     updated_loads[action] += est_runtimes[action]
