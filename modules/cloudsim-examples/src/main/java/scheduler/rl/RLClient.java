@@ -26,13 +26,16 @@ public class RLClient {
         out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
     }
 
-    public int getAction(List<Double> state, int cloudletId) throws IOException, InterruptedException {
-        Thread.sleep(50);
+    public int getAction(List<Double> state, Long cloudletLength, List<Double> estimateRuntime) throws IOException, InterruptedException {
+        Thread.sleep(20);
         JsonObject obj = new JsonObject();
         JsonArray arr = new JsonArray();
         for (double v : state) arr.add(v);
         obj.add("state", arr);
-        obj.addProperty("cloudletId", cloudletId);
+        obj.addProperty("cloudletLength", cloudletLength);
+        JsonArray arr1 = new JsonArray();
+        for (double v : estimateRuntime) arr1.add(v);
+        obj.add("estimateRuntime", arr1);
 
         // 发送 JSON 请求
         out.write(obj.toString());

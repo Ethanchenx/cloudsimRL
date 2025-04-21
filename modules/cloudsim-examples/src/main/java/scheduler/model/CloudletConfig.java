@@ -7,7 +7,7 @@ package scheduler.model;
  */
 
 public class CloudletConfig {
-    public static final boolean RAMDOM = true;
+    public static final boolean RAMDOM = false;
 
     // 任务总数
     public static final int NUM_CLOUDLETS = 100;

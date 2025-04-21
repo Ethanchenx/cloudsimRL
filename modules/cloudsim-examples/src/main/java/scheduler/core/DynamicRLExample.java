@@ -85,6 +85,8 @@ public class DynamicRLExample {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+
     }
 
     public void printResultList() throws IOException {

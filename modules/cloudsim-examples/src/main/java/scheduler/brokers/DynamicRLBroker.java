@@ -13,6 +13,7 @@ import org.cloudbus.cloudsim.Log;
 import org.cloudbus.cloudsim.core.CloudActionTags;
 import org.cloudbus.cloudsim.core.CloudSim;
 import org.cloudbus.cloudsim.core.SimEvent;
+import scheduler.eval.EvaluationMetrics;
 import scheduler.model.VmConfig;
 import scheduler.rl.RLClient;
 import scheduler.rl.RLRewardCalculator;
@@ -95,17 +96,18 @@ public class DynamicRLBroker extends DatacenterBroker {
         if (!taskQueue.isEmpty()) {
             List<Double> nextState = new ArrayList<>();
             Double reward;
-            if (postImbalanceRate != -1){
-                nextState = RLRewardCalculator.calculateReward(getGuestsCreatedList(), vmCosts, cloudlet, postImbalanceRate);
-                reward = nextState.getLast();
-                nextState.removeLast();
-                try {
-                    rlClient.sendReward(nextState, reward);
-                } catch (Exception e) {
-                    System.err.println("⚠️ reward err");
-                }
-            }
+//            if (postImbalanceRate != -1){
+//                nextState = RLRewardCalculator.calculateReward(getGuestsCreatedList(), vmCosts, cloudlet, postImbalanceRate, previousState, previousCloudlet);
+//                reward = nextState.getLast();
+//                nextState.removeLast();
+//                try {
+//                    rlClient.sendReward(nextState, reward);
+//                } catch (Exception e) {
+//                    System.err.println("⚠️ reward err");
+//                }
+//            }
             scheduleNext();
+
         }
     }
 
@@ -119,12 +121,19 @@ public class DynamicRLBroker extends DatacenterBroker {
         List<Double> state = RLStateEncoder.buildVmsState(getGuestsCreatedList(), vmCosts, c);
         postImbalanceRate = state.getLast();
         state.removeLast();
+        List<Double> estimateRuntime = new ArrayList<>();
+        for (int i = 0; i < vmList.size(); i++){
+            estimateRuntime.add(i, c.getCloudletLength()/vmList.get(i).getMips());
+        }
 
         int selectedVm = 0;
 
+//        this.previousState = state;
+//        this.previousCloudlet = c;
+
         // 使用 RL 服务返回的动作来选择 VM
         try {
-            selectedVm = rlClient.getAction(state, c.getCloudletId());
+            selectedVm = rlClient.getAction(state, c.getCloudletLength(), estimateRuntime);
             System.out.printf("Cloudlet %d → VM %d\n", c.getCloudletId(), selectedVm);
         } catch (Exception e) {
             System.err.println("使用默认策略 (VM 0)");
